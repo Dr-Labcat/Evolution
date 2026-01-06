@@ -29,6 +29,8 @@ class Game:
         # Deal 5 cards to each player at game start and let them create their first species
         for p in self.players:
             p.hand.extend(self.deck.draw(5))
+            # keep hand in alphabetical order by current card name
+            p.hand.sort(key=lambda c: c.name)
 
         # Flag to skip the first automatic draw in card play phase (players already have 5)
         self.skip_initial_draw = True
@@ -122,6 +124,8 @@ class Game:
             for p in self.players:
                 draw_count = len(p.species) + 3
                 p.hand.extend(self.deck.draw(draw_count))
+                # keep hand sorted alphabetically
+                p.hand.sort(key=lambda c: c.name)
         else:
             # clear the flag after skipping once
             self.skip_initial_draw = False
@@ -226,20 +230,28 @@ class Game:
                             print(f"Created new species (card {card} used but NOT a trait)")
                             # If the card is a pair trait, ask which species to pair with
                             if card.name in ["COMMUNICATION", "SYMBIOSIS", "COOPERATION"]:
-                                # List all species on table to choose partner
+                                # List species to choose partner. For COOPERATION, prefer own species only.
                                 all_species = []
-                                for op in self.players:
-                                    for idx_sp, sp_item in enumerate(op.species, 1):
-                                        all_species.append((op, sp_item))
-                                print("Choose species to pair with:")
-                                for idx_sp, (op, sp_item) in enumerate(all_species, 1):
-                                    print(f"{idx_sp}: {op.name} - {sp_item}")
-                                choice_sp = input("Choose partner species number (or 'q' to skip): ")
-                                if choice_sp.isdigit() and 1 <= int(choice_sp) <= len(all_species):
-                                    partner_op, partner_sp = all_species[int(choice_sp)-1]
-                                    new_sp.pair_partners[partner_sp] = card
-                                    partner_sp.pair_partners[new_sp] = card
-                                    print(f"Paired {new_sp} with {partner_op.name}'s {partner_sp} for {card.name}.")
+                                # For COOPERATION prefer only player's own other species
+                                if card.name == "COOPERATION":
+                                    for sp_item in p.species:
+                                        if sp_item is not new_sp:
+                                            all_species.append((p, sp_item))
+                                # If no own candidates (or other pair types), include all species on table
+                                if not all_species:
+                                    for op in self.players:
+                                        for idx_sp, sp_item in enumerate(op.species, 1):
+                                            all_species.append((op, sp_item))
+                                if all_species:
+                                    print("Choose species to pair with:")
+                                    for idx_sp, (op, sp_item) in enumerate(all_species, 1):
+                                        print(f"{idx_sp}: {op.name} - {sp_item}")
+                                    choice_sp = input("Choose partner species number (or 'q' to skip): ")
+                                    if choice_sp.isdigit() and 1 <= int(choice_sp) <= len(all_species):
+                                        partner_op, partner_sp = all_species[int(choice_sp)-1]
+                                        new_sp.pair_partners[partner_sp] = card
+                                        partner_sp.pair_partners[new_sp] = card
+                                        print(f"Paired {new_sp} with {partner_op.name}'s {partner_sp} for {card.name}.")
                         elif 1 <= target <= len(p.species):
                             success = p.play_card(card, p.species[target-1])
                             if success:
@@ -255,6 +267,11 @@ class Game:
                                                 continue
                                             all_species.append((op, sp_item))
                                     if all_species:
+                                        # For COOPERATION prefer own species only
+                                        if card.name == "COOPERATION":
+                                            own_candidates = [(p, sp_item) for sp_item in p.species if sp_item is not base_sp]
+                                            if own_candidates:
+                                                all_species = own_candidates
                                         print("Choose species to pair with:")
                                         for idx_sp, (op, sp_item) in enumerate(all_species, 1):
                                             print(f"{idx_sp}: {op.name} - {sp_item}")
@@ -321,13 +338,16 @@ class Game:
                             if success and card.name in ["COMMUNICATION", "SYMBIOSIS", "COOPERATION"]:
                                 base_sp = p.species[target_idx]
                                 # Prefer own other species
-                                candidates = [sp for sp in p.species if sp is not base_sp]
-                                # If none, consider other players' species
-                                if not candidates:
-                                    for op in self.players:
-                                        if op is p:
-                                            continue
-                                        candidates.extend(op.species)
+                                if card.name == "COOPERATION":
+                                    candidates = [sp for sp in p.species if sp is not base_sp]
+                                else:
+                                    candidates = [sp for sp in p.species if sp is not base_sp]
+                                    # If none, consider other players' species
+                                    if not candidates:
+                                        for op in self.players:
+                                            if op is p:
+                                                continue
+                                            candidates.extend(op.species)
                                 if candidates:
                                     partner_sp = random.choice(candidates)
                                     base_sp.pair_partners[partner_sp] = card
@@ -375,12 +395,16 @@ class Game:
                         success = ai.play_card(card, ai.species[target_idx])
                         if success and card.name in ["COMMUNICATION", "SYMBIOSIS", "COOPERATION"]:
                             base_sp = ai.species[target_idx]
-                            candidates = [sp for sp in ai.species if sp is not base_sp]
-                            if not candidates:
-                                for op in self.players:
-                                    if op is ai:
-                                        continue
-                                    candidates.extend(op.species)
+                            # For COOPERATION, only pair with own species
+                            if card.name == "COOPERATION":
+                                candidates = [sp for sp in ai.species if sp is not base_sp]
+                            else:
+                                candidates = [sp for sp in ai.species if sp is not base_sp]
+                                if not candidates:
+                                    for op in self.players:
+                                        if op is ai:
+                                            continue
+                                        candidates.extend(op.species)
                             if candidates:
                                 partner_sp = random.choice(candidates)
                                 base_sp.pair_partners[partner_sp] = card
@@ -514,7 +538,16 @@ class Game:
                     continue
 
                 # Unfed species + fed species with FAT TISSUE eligible for conversion
-                unfed_species = [sp for sp in p.species if not sp.is_fed()]
+                # SYMBIOSIS: a species with SYMBIOSIS cannot eat until its partner is fed
+                def symbiosis_blocked(sp):
+                    if not sp.has_trait("SYMBIOSIS"):
+                        return False
+                    for partner in list(sp.pair_partners.keys()):
+                        if not partner.is_fed():
+                            return True
+                    return False
+
+                unfed_species = [sp for sp in p.species if not sp.is_fed() and not symbiosis_blocked(sp)]
                 fat_eligible_species = [sp for sp in p.species if sp.is_fed() and sp.has_trait("FAT TISSUE") and not sp.fat_converted_this_round]
                 feedable_species = unfed_species + fat_eligible_species
                 if not feedable_species:
@@ -544,7 +577,21 @@ class Game:
                     
                     sp = feedable_species[int(choice)-1]
                     
-                    # If already fed and has FAT TISSUE, convert 1 food to 1 fat
+                    # If species has GRAZING, offer manual activation to remove 1 from bank (doesn't count as eating)
+                    if sp.has_trait("GRAZING"):
+                        gchoice = input("Activate GRAZING to remove 1 from bank without feeding (y/N)? ")
+                        if gchoice.lower() == 'y':
+                            if self.food_bank > 0:
+                                self.food_bank -= 1
+                                print(color(f"{p.name} activated GRAZING: removed 1 from food bank.", GREEN))
+                                # grazing does not feed the species
+                                # show updated bank and continue (player may choose again)
+                                print(f"Food bank: {color(str(self.food_bank), YELLOW)}")
+                                self.show_species_state()
+                                actions_remaining = True
+                                continue
+
+                    # If already fed and has FAT TISSUE, convert 1 food to 1 fat (food -> fat)
                     if sp.is_fed() and sp.has_trait("FAT TISSUE") and self.food_bank > 0:
                         sp.add_fat_storage(1)
                         sp.fat_converted_this_round = True
@@ -558,7 +605,7 @@ class Game:
                     # refresh table after feeding
                     self.show_species_state()
                     
-                    # COOPERATION: if one animal of player is fed, another gets food automatically
+                    # COOPERATION: if one animal of player is fed, another OWN animal gets food automatically
                     if sp.has_trait("COOPERATION"):
                         for other_sp in p.species:
                             if other_sp != sp and not other_sp.is_fed() and self.food_bank > 0:
@@ -571,6 +618,14 @@ class Game:
                 elif p.is_ai:
                     actions_remaining = True
                     sp = random.choice(feedable_species)
+                    
+                    # AI may choose to use GRAZING to remove 1 without feeding
+                    if sp.has_trait("GRAZING") and self.food_bank > 0 and random.random() < 0.4:
+                        self.food_bank -= 1
+                        print(color(f"{p.name} (AI) activated GRAZING: removed 1 from food bank.", GREEN))
+                        print(f"Food bank: {self.food_bank}")
+                        actions_remaining = True
+                        continue
                     
                     # If already fed with FAT TISSUE, auto-convert (chance for AI)
                     if sp.is_fed() and sp.has_trait("FAT TISSUE") and self.food_bank > 0 and random.random() < 0.6:
@@ -607,21 +662,18 @@ class Game:
                 if needed <= 0:
                     # fully fed by fat
                     return True
-        
-        # GRAZING: draws food from bank directly
-        if species.has_trait("GRAZING"):
+
+        # PARASITE: species with parasites may only take 1 food per turn from the bank
+        if species.parasite_count > 0:
+            amount = min(1, needed, self.food_bank)
+        else:
+            # Standard feeding from food bank (may take multiple)
             amount = min(needed, self.food_bank)
-            species.food += amount
-            self.food_bank -= amount
-            print(color(f"{player.name}'s species grazed and took {amount} food from the bank.", GREEN))
-            return True
-        
-        # Standard feeding from food bank
-        amount = min(needed, self.food_bank)
+
         species.food += amount
         self.food_bank -= amount
         print(f"{player.name}'s species took {amount} food from the bank.")
-        
+
         return True
 
     # -----------------------------
@@ -784,11 +836,30 @@ class Game:
         for p in self.players:
             for sp in p.species[:]:
                 if not sp.is_fed():
-                    print(f"{p.name}'s {sp} went extinct due to starvation!")
-                    p.species.remove(sp)
-                else:
-                    # Add collected food to player's total
-                    p.food_collected += sp.food
+                    # Try to use FAT TISSUE reserves to survive
+                    if sp.has_trait("FAT TISSUE") and sp.fat_storage > 0:
+                        needed = sp.get_food_requirement() - sp.food
+                        consumed = sp.consume_fat_storage(needed)
+                        if consumed > 0:
+                            sp.food += consumed
+                            print(color(f"{p.name}'s {sp} used {consumed} fat to avoid starvation.", MAGENTA))
+                    # SYMBIOSIS: symbiote can't die while symbiont exists
+                    if not sp.is_fed():
+                        alive_partner = False
+                        if sp.has_trait("SYMBIOSIS"):
+                            for partner in list(sp.pair_partners.keys()):
+                                if partner in partner.owner.species:
+                                    alive_partner = True
+                                    break
+                        if alive_partner:
+                            print(color(f"{p.name}'s {sp} is protected by SYMBIOSIS partner and survives despite being unfed.", MAGENTA))
+                            continue
+                        # still unfed -> extinct
+                        print(f"{p.name}'s {sp} went extinct due to starvation!")
+                        p.species.remove(sp)
+                    else:
+                        # Add collected food to player's total
+                        p.food_collected += sp.food
             
             # Reset food for next round
             for sp in p.species:
