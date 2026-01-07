@@ -10,8 +10,12 @@ class Species:
         self.hibernating = False  # hibernation state
         self.parasite_count = 0  # number of parasites on this species
         self.pair_partners = {}  # for pair traits: {other_species: trait_card}
-        self.fat_converted_this_round = False  # track if fat conversion used this round
+        self.fat_converted_this_round = False  # (legacy flag — conversions are allowed until capacity)
         self.fat_eligible_this_turn = False  # became fed in previous turn; eligible for fat conversion now
+        self.predator_used = False  # track if predator attack was used this turn
+        self.grazing_used = False  # GRAZING can be activated once per feeding round per species
+        self.received_red = False  # whether species received a red token from bank during current feeding phase
+        self.piracy_used = False  # whether PIRACY was used by this species this feeding phase
 
     def add_trait(self, card):
         """Add a trait card to this species (max 3 traits)."""
@@ -45,8 +49,13 @@ class Species:
         return req
 
     def is_fed(self):
-        """Check if species has enough food to survive."""
-        return self.food >= self.get_food_requirement()
+        """Check if species has enough food to survive or is hibernating."""
+        # Hibernation marks a species as fed for the purposes of defenses and phase actions
+        return self.hibernating or (self.food >= self.get_food_requirement())
+
+    def fat_capacity(self):
+        """How many FAT TISSUE cards are on this species (each can hold 1 yellow token)."""
+        return sum(1 for t in self.traits if t.name == "FAT TISSUE")
 
     def can_be_eaten_by(self, attacker_species):
         """
@@ -131,10 +140,31 @@ class Species:
     def reset_food(self):
         """Reset food for new round (but keep fat storage)."""
         self.food = 0
+        # Hibernation and 'used this turn' flags are reset at round end
+        self.hibernating = False
+        self.fat_converted_this_round = False
+        self.predator_used = False
 
     def add_fat_storage(self, amount):
-        """Add to fat tissue storage."""
-        self.fat_storage += amount
+        """Add to fat tissue storage up to the capacity provided by FAT TISSUE traits.
+
+        Returns how many yellow tokens were actually added (may be less than `amount`).
+        """
+        cap = self.fat_capacity()
+        available = max(0, cap - self.fat_storage)
+        to_add = min(amount, available)
+        self.fat_storage += to_add
+        return to_add
+
+    def convert_fat_to_food(self, amount):
+        """Convert up to `amount` yellow fat tokens into food (blue tokens).
+
+        Returns number of tokens converted.
+        """
+        converted = min(amount, self.fat_storage)
+        self.fat_storage -= converted
+        self.food += converted
+        return converted
 
     def consume_fat_storage(self, amount):
         """Use stored fat for feeding."""
@@ -145,4 +175,5 @@ class Species:
     def __str__(self):
         traits_str = ', '.join([t.name for t in self.traits])
         parasite_str = f" Parasites:{self.parasite_count}" if self.parasite_count > 0 else ""
-        return f"Body-size:{self.body_size} Food:{self.food}/{self.get_food_requirement()} Fat:{self.fat_storage} Traits:[{traits_str}]{parasite_str}"
+        fat_cap = self.fat_capacity()
+        return f"Body-size:{self.body_size} Food:{self.food}/{self.get_food_requirement()} Fat:{self.fat_storage}/{fat_cap} Traits:[{traits_str}]{parasite_str}"

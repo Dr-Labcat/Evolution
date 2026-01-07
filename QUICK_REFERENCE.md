@@ -1,201 +1,164 @@
-# Evolution Game - Quick Reference Guide
+# Quick Reference — Traits, Mechanics & Strategy
 
-## Trait Quick Reference
+This is a comprehensive but concise reference for the 19 traits and core rules of Evolution.
 
-### Predatory Traits
-| Trait | Effect | Synergies |
-|-------|--------|-----------|
-| **CARNIVORE** | Attack other species | SHARP VISION, HIGH BODY WEIGHT |
-| **SHARP VISION** | Eat CAMOUFLAGE species | Works with CARNIVORE |
-| **PIRACY** | Steal from unfed species | Operates during extinction |
+## Game Flow (High Level)
+
+**Each Round:**
+1. **Card Play** (→ players alternate playing cards, adding traits or creating species)
+2. **Feeding** (→ food bank rolled; players take turns with three action options)
+3. **Extinction** (→ unfed species may die; survivors collect food for scoring)
+4. **Check deck** (→ if empty, final scoring; else start new round)
+
+## Feeding Phase — Your Three Actions
+
+On your feeding turn, choose ONE:
+
+| **Action** | **What happens** | **When useful** |
+|:----------:|:---------------------------------------------|:------------------------------------------|
+| **Feed** | Give 1 food to unfed or FAT if fed | Most common; build toward food requirements |
+| **Use ability** | GRAZING, HIBERNATION, or convert FAT → food | Low-bank rounds or unlock FAT |
+| **Attack** | Choose CARNIVORE; target opponent species | Remove threats; gain resources |
+
+**Mandatory feeding rule:** If you have unfed species and the bank has food, you must take an action (can't keep passing).
+
+## Trait Reference — All 19 Traits
+
+### Offensive Traits
+
+| **Trait** | **What it does** | **Limit** | **Example** |
+|:------------------------|:---------------------------------------------|:-------------------|:--------------------------------|
+| **CARNIVORE** | Attack opponent; gain 2 food if successful | 1/round/carnivore | Remove threats; feed predator |
+| **SHARP VISION** | Ignores CAMOUFLAGE | Always active | Pair with CARNIVORE to eat anything |
+| **PIRACY** | Steal 1 food from newly-fed opponent species | Limited/round | Disrupt feeders; theft |
 
 ### Defensive Traits
-| Trait | Effect | When Active |
-|-------|--------|-------------|
-| **SWIMMING** | Block non-swimming carnivores | Always |
-| **RUNNING** | 50% escape chance (4-6 on d6) | During attack |
-| **CAMOUFLAGE** | Hide from non-SHARP VISION carnivores | Always |
-| **HIGH BODY WEIGHT** | Block smaller carnivores | Always |
-| **BURROWING** | Protection if fed | When fed |
-| **TAIL LOSS** | Escape but lose trait | During attack |
-| **POISONOUS** | Kill attacking carnivore | During attack |
 
-### Feeding Traits
-| Trait | Effect | Usage |
-|-------|--------|-------|
-| **GRAZING** | Auto-feed from bank | Every feeding turn |
-| **HIBERNATION** | Marked fed without food | Can't be used 2 turns in a row |
-| **FAT TISSUE** | Store excess food | When fully fed |
-| **COOPERATION** | Feed allied species | When one gets food |
-| **COMMUNICATION** | Share food between pair | Pair trait mechanic |
-| **SCAVENGER** | Get food when species eaten | When extinction happens |
+| **Trait** | **What it does** | **Active?** | **Counter** |
+|:------------------------|:---------------------------------------------|:----------:|:--------------------------------|
+| **SWIMMING** | Blocks CARNIVORE without SWIMMING | Always | Add SWIMMING to carnivore |
+| **RUNNING** | 1d6 roll (4–6 = escape) | Attacks only | High-risk; needs backup |
+| **CAMOUFLAGE** | Hides from CARNIVORE without SHARP VISION | Always | SHARP VISION ignores it |
+| **HIGH BODY WEIGHT** | Blocks small predators; +1 scoring | Always | Larger attacker or match size |
+| **BURROWING** | Protected if fed (can't be eaten) | Only when fed | Starve or use PIRACY |
+| **TAIL LOSS** | Discard trait to survive attack | Attacks only | Trade trait for survival |
+| **POISONOUS** | Attacker dies; defender survives | Always | Avoid attacking |
 
-### Special Traits
-| Trait | Effect | Counter |
-|-------|--------|---------|
-| **SYMBIOSIS** | Protect pair from eating | Both must be alive |
-| **MIMICRY** | Swap target of attack | Choose different species |
-| **PARASITE** | Increase food requirement by 2 | Applied to opponent species |
+### Feeding & Support Traits
 
----
+| **Trait** | **What it does** | **Limit** | **Strategic note** |
+|:------------------------|:---------------------------------------------|:-------------------|:--------------------------------|
+| **GRAZING** | Take 1 food from bank (no feeding needed) | 1/species/round | Guaranteed in low-bank rounds |
+| **HIBERNATION** | Mark as "fed" without bank food | 1/species; resets | Free food per round |
+| **FAT TISSUE** | Store excess food for later rounds | 1 slot/trait | Insurance; convert at extinction |
+| **COOPERATION** | Feed partner when you're fed | Triggers when fed | Build feeding chains |
+| **COMMUNICATION** | Pair-trait for coordination | Requires pairing | Flexible mechanics |
+| **SCAVENGER** | Gain 1 food when species dies | Always active | Reward for chaos |
 
-## Game Flow
+### Pair & Special Traits
 
-```
-┌─────────────────────────────────────────┐
-│      Card Play Phase                    │
-│  Players play cards as traits or        │
-│  create new species                     │
-└──────────────┬──────────────────────────┘
-               │
-               ▼
-┌─────────────────────────────────────────┐
-│  Food Bank Determination                │
-│  Roll dice: 2p=1d6+2, 3p=2d6,          │
-│  4p=2d6+2                              │
-└──────────────┬──────────────────────────┘
-               │
-               ▼
-┌─────────────────────────────────────────┐
-│      Feeding Phase                      │
-│  Players take turns feeding species     │
-│  (need 1 food + parasites and           │
-│other expensive abilities)               │
-└──────────────┬──────────────────────────┘
-               │
-               ▼
-┌─────────────────────────────────────────┐
-│    Carnivore Attacks                    │
-│  Carnivores attack in player order      │
-│  Defenses activate if applicable        │
-└──────────────┬──────────────────────────┘
-               │
-               ▼
-┌─────────────────────────────────────────┐
-│    Extinction Check                     │
-│  Unfed species are removed              │
-│  PIRACY activates                       │
-│  Food collected for scoring             │
-└──────────────┬──────────────────────────┘
-               │
-               ▼
-        ┌──────────────┐
-        │ Deck empty?  │
-        └──┬───────┬───┘
-           │       │
-          NO      YES
-           │       │
-           ▼       ▼
-       (Next)   (Score &
-       (Round)   Winner)
-```
+| **Trait** | **What it does** | **How pairing works** | **Example** |
+|:------------------------|:---------------------------------------------|:-------------------|:--------------------------------|
+| **SYMBIOSIS** | Paired species can't be eaten (needs partner alive) | Pair when playing | Protect fragile species |
+| **MIMICRY** | Redirect attack to different species | Defender choice during attack | Sacrifice weak → save key |
+| **PARASITE** | +2 food requirement per parasite | Applied to opponent species | Cripple foes; +2 pts/survivor |
 
----
+## Attack Resolution (Step-by-Step)
 
-## Food Requirement Examples
+1. **Attacker picks target** from an opponent's species pool
+2. **Check passive blocks** (first-to-activate):
+   - SYMBIOSIS: Target has living pair? → **Blocked, attack fails**
+   - SWIMMING: Target has SWIMMING; attacker doesn't? → **Blocked**
+   - HIGH BODY WEIGHT: Target's size > attacker's size? → **Blocked**
+   - CAMOUFLAGE: Target hidden; attacker lacks SHARP VISION? → **Blocked**
+3. **Check RUNNING**: Defender rolls 1d6; result 4–6? → **Escaped, attack fails**
+4. **Check TAIL LOSS**: Defender can discard a trait? → **Survives with fewer traits**
+5. **Check POISONOUS**: Attacker dies? → **Attacker removed, defender survives** (or both may die)
+6. **Attack succeeds**: Target removed; attacker gains 2 food (applied to food pool or FAT auto-stored if fed)
 
-**Base food requirement: 1**
+## Food & Requirements
 
-Species with PARASITE:
-- 1 PARASITE = 3 food needed
-- 2 PARASITES = 5 food needed
-- 3 PARASITES = 7 food needed
+**Base requirement:** 1 food per species per round
 
----
+**Modifiers:**
+- CARNIVORE trait: +1 (needs 2 food to fully feed)
+- HIGH BODY WEIGHT: +1 (larger bodies need more)
+- PARASITE: +2 per parasite (each one raises the bar significantly)
 
-## Scoring Formula
+**Examples:**
+- Plain herbivore: 1 food
+- CARNIVORE (no other traits): 2 food
+- Herbivore with PARASITE: 3 food
+- CARNIVORE with HIGH BODY WEIGHT + 1 PARASITE: 2+1+2 = 5 food (very hungry!)
 
-```
-Total Points = (2 × surviving species) 
-             + (traits on survivors) 
-             + (1 bonus per CARNIVORE/HIGH BODY WEIGHT)
-             + (2 points per PARASITE)
-             + (food collected)
-```
+**Survival mechanics:**
+- Species must reach their food requirement or starve (die at extinction)
+- FAT TISSUE can be spent to meet requirement (auto-converts at extinction)
+- HIBERNATION counts as fed without food
+- BURROWING lets fed species resist attack
 
----
+## Scoring (End of Game)
 
-## Attack Resolution Example
+When deck is depleted:
 
-```
-Scenario: Herbivore with SWIMMING vs Carnivore without SWIMMING
+- **+2 points** per surviving species
+- **+1 point** per trait on survivors (count all traits on all surviving species)
+- **+1 bonus** for CARNIVORE on each survivor
+- **+1 bonus** for HIGH BODY WEIGHT on each survivor
+- **+2 points** per PARASITE on survivors (can be a large positive if you kept parasites alive!)
+- **+1 point** per food token in your collected pool
 
-Attacker: CARNIVORE (no SWIMMING)
-Defender: SWIMMING
+**Example:** You have 2 surviving species:
+- Species A: SWIMMING, CARNIVORE (2 traits) → 2 (species) + 2 (traits) + 1 (CARNIVORE bonus) = 5 pts
+- Species B: HIBERNATION (1 trait) → 2 + 1 = 3 pts
+- Collected food: 4 tokens → 4 pts
+- **Total: 12 points**
 
-Result: SWIMMING blocks attack
-        Species survives
-```
+## Common Combos & Synergies
 
-```
-Scenario: RUNNING vs Carnivore
+| **Combo** | **Effect** | **Strength** |
+|:------------------------------|:----------------------------------|:--------------------------|
+| CARNIVORE + SHARP VISION | Eat anything (ignores CAMOUFLAGE) | Dominant predator |
+| SWIMMING + HIGH BODY WEIGHT + RUNNING | Stack defenses | Fortress |
+| COOPERATION + GRAZING | Feed 1 → cascade | Efficient |
+| FAT TISSUE + HIBERNATION | Insurance + free food | Safe |
+| CARNIVORE + SYMBIOSIS | Protected predator | Long-term power |
+| PARASITE + PIRACY | Starve + steal | Control |
 
-Attacker: CARNIVORE
-Defender: RUNNING
+## Strategy Highlights
 
-Resolution: Roll 1d6
-           4-6: Escape!
-           1-3: Eaten
+### Build Types
+- **Predatory**: CARNIVORE + SHARP VISION + HIGH BODY WEIGHT (expensive, powerful)
+- **Herbivore Defense**: SWIMMING + HIGH BODY WEIGHT + RUNNING (multiple escape routes)
+- **Feeding Engine**: COOPERATION chains with GRAZING and FAT TISSUE (self-sustaining)
+- **Chaos**: PIRACY + PARASITE (disrupt opponents; weak on its own)
 
-Result: Depends on dice roll
-```
+### Resource Management
+- Early: Diverse species to reduce extinction risk
+- Mid: Notice opponents' builds; counter-build
+- Late: Maximize survivors; collect food; avoid fragile new species
 
-```
-Scenario: POISONOUS vs Carnivore
+### Mandatory Feeding
+Once you have unfed species and the bank has food, you cannot idle. This forces interesting decisions.
 
-Attacker: CARNIVORE
-Defender: POISONOUS
+## Edge Cases & FAQs
 
-Result: POISONOUS eats carnivore
-        Carnivore dies instead
-        Species survives
-```
+**Q: Can I create a species without a trait?**  
+No. Every species must have at least 1 trait (the trait card is the species card).
 
----
+**Q: Does COOPERATION trigger on HIBERNATION?**  
+No, HIBERNATION doesn't consume food, so COOPERATION doesn't activate.
 
-## Strategic Tips
+**Q: Can PIRACY steal from my own species?**  
+No, PIRACY targets opponents' species that received red food this round.
 
-### For Offense
-1. Build CARNIVORE with SHARP VISION + HIGH BODY WEIGHT
-2. Create synergies between traits
-3. Target weak (undefended) species first
+**Q: If my CARNIVORE eats an opponent's POISONOUS species, do I lose the food?**  
+Yes. Your carnivore dies; it gains no food. Both species are removed.
 
-### For Defense
-1. Stack defensive traits (SWIMMING + RUNNING + HIGH BODY WEIGHT)
-2. Use TAIL LOSS as backup defense
-3. BURROWING works better when you can feed regularly
+**Q: Can I voluntarily starve a species?**  
+No. You must take feeding actions if you have unfed species and food is available. However, if you run out of actions (opponent attacks your last unfed species, etc.), then starvation is forced.
 
-### For Feeding
-1. GRAZING gives automatic advantage in low food
-2. HIBERNATION is escape valve for bad rounds
-3. FAT TISSUE provides multi-round insurance
-4. COOPERATION creates feed-through effect
+**Q: How does SYMBIOSIS work exactly?**  
+When you play SYMBIOSIS, you pair it with another species (yours or an opponent's). The smaller (or designated) species is protected. If the partner dies, SYMBIOSIS protection is lost.
 
-### For Scoring
-1. Don't neglect food collection
-2. Species count matters (2pts each)
-3. Trait diversity builds points (1pt each)
-4. Avoid heavy parasite load
-
----
-
-## Common Card Combinations
-
-**Carnivore Strategy:**
-- CARNIVORE + SHARP VISION (eat everything)
-- CARNIVORE + HIGH BODY WEIGHT (unstoppable)
-- CARNIVORE + SHARP VISION + HIGH BODY WEIGHT (total domination)
-
-**Herbivore Defense:**
-- SWIMMING + HIGH BODY WEIGHT (nearly invulnerable)
-- CAMOUFLAGE + SHARP VISION (hide + see predators)
-- RUNNING + RUNNING + RUNNING (multiple escapes)
-
-**Survival:**
-- GRAZING + HIBERNATION (never starve)
-- BURROWING + FAT TISSUE (feast or famine proof)
-
-**Chaos Strategy:**
-- PARASITE + PIRACY (starve opponents)
-- POISON + TAIL LOSS (suicidal defense)
-
+For full gameplay walkthroughs and examples, see `HOW_TO_PLAY.md`.

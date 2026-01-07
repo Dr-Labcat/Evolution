@@ -1,4 +1,6 @@
-# How to Play Evolution
+# How to Play Evolution — Complete Guide
+
+Evolution is played over several rounds. Each round has three phases: **Card Play**, **Feeding**, and **Extinction**. The game ends when the deck runs low, then scores are calculated.
 
 ## Starting the Game
 
@@ -6,264 +8,217 @@
 python main.py
 ```
 
-The game will display:
-- Current round number
-- Whose turn it is
-- Available actions
-- Game state (species, food bank, etc.)
+You'll be asked to enter your name (or accept "You"). The game will then:
+1. Deal you 5 trait cards
+2. Ask you to discard one card to create your first species
+3. Start Round 1
 
-## Card Play Phase
+## Phase 1: Card Play
 
-### Your Turn Prompt:
-```
---- You's turn ---
-Your species:
-1: Body-size:1 Food:0/1 Traits:[]
-Your hand:
-1: SWIMMING
-2: CARNIVORE
-3: FAT TISSUE
-Play card? Enter card number or 'q' to skip:
-```
+In this phase, players take turns (you go first, then the AI, back and forth) to play one card from their hand.
 
-### What to Do:
-1. **Enter a number (1-3 in above example)** to play that card
-2. **Enter 'q'** to skip your turn and let other players play
+**On your turn, you can:**
+- **Play a card on an existing species** (add a trait)
+- **Play a card as a new species** (use it as the base; discard a trait from your hand later)
+- **Press 'q' to pass** (skip this turn; other players continue)
 
-### After Playing a Card:
+**Special case — PARASITE:**
+If you play a PARASITE card, you must choose an opponent and one of their species to infect. The parasite adds +2 to that species' food requirement, making it harder to feed.
 
-You'll see:
-```
-Add to species (1-1) or create new (0)? 
-```
+**Traits per species:**
+Each species can have up to 3 traits. Once full, you must create a new species to add more traits.
 
-**Options:**
-- **Enter 0**: Create a brand new species with this card
-- **Enter 1**: Add the trait to species #1 (if it has space)
+**Passing:**
+Once you pass, you sit out the rest of Card Play; other players continue until everyone has passed.
 
-### Special Case - PARASITE:
+## Phase 2: Feeding
 
-If you play PARASITE:
-```
-Which opponent species to infect with PARASITE?
-1: AI_1
-Choose opponent (or 'q' to cancel):
-```
+After everyone has passed, the food bank is rolled:
+- **2 players**: 1d6 + 2
+- **3 players**: 2d6
+- **4 players**: 2d6 + 2
+- **5 players**: 3d6 + 2
 
-1. Choose the opponent number
-2. Choose which of their species to infect
+Players then take turns choosing one action per turn, in a round-robin fashion:
 
----
+### Your Three Action Options
 
-## Feeding Phase
+#### Option 1: Feed from the Food Bank
+Choose an unfed species and give it 1 food from the bank (up to its food requirement).
+- If a species is already fed, the food is automatically stored as FAT TISSUE (if it has the trait).
+- If a species has COOPERATION, its neighbor also gets 1 food automatically.
 
-### Your Turn:
-```
---- You's feeding turn ---
-Food bank: 4
-Your unfed species:
-1: Body-size:1 Food:0/1 Traits:[SWIMMING]
-2: Body-size:1 Food:0/2 Traits:[PARASITE]
-Feed species 1-2 (or 'q' to skip):
-```
+#### Option 2: Use Animal Abilities
+Activate a special trait on one of your species:
+- **GRAZING**: Remove 1 from the food bank without feeding (once per species per round)
+- **HIBERNATION**: Mark a species as "fed" without using food (counts as hibernating; resets next round)
+- **CONVERT FAT**: Spend stored FAT TISSUE tokens to feed your species
 
-**What to Do:**
-- Enter **1 or 2** to feed that species
-- Enter **'q'** to skip feeding (species might go extinct!)
+#### Option 3: Attack with a Carnivore (Your Turn Only)
+If you own a CARNIVORE that hasn't attacked this round, you can attack an opponent's species:
 
-### Food Requirements:
-- **Base: 1 food** (to survive one round)
-- **+2 per PARASITE** (so 2 parasites = 5 food needed!)
-- **HIBERNATION**: Can be marked fed without using food
+1. **Choose your carnivore**
+2. **Choose a target** from opponent species (the game shows you what defenses apply)
+3. **Resolve the attack**:
+   - If target has SWIMMING and your carnivore doesn't, blocked (species survives)
+   - If target has CAMOUFLAGE and your attacker lacks SHARP VISION, blocked
+   - If target has HIGH BODY WEIGHT and your attacker is smaller, blocked
+   - If target has BURROWING and is fed, blocked
+   - If target has RUNNING, roll a die: 4–6 = escape
+   - If target has TAIL LOSS, it can discard a trait to survive
+   - If target has POISONOUS, your carnivore dies instead
+4. **Success**: Target is removed; your carnivore gains 2 food (goes to FAT if already fed)
 
-### Special Traits in Feeding:
-- **GRAZING**: Automatically gets food
-- **FAT TISSUE**: Can store excess food
-- **COOPERATION**: Feeding one species feeds its partner
-- **HIBERNATION**: Can skip a turn
+**Mandatory Feeding Rule:**
+If you have unfed species or unfilled FAT TISSUE slots and the food bank has food, you must take an action. You cannot skip indefinitely while obligations exist.
 
----
+### During Feeding, Opponents May React
+- If a species receives red food (from the bank or GRAZING), an opponent with PIRACY can steal 1 from it
+- When a species is eaten, all SCAVENGER species gain 1 food (even on opponent turns)
 
-## Carnivore Attacks (Automatic)
+### End of Feeding
+Once all players pass consecutively, move to Extinction.
 
-Watch the game automatically resolve attacks:
+## Phase 3: Extinction & Scoring
 
-```
-=== Carnivore Attacks ===
-AI_1's CARNIVORE attacked You's SWIMMING species!
-Protected by SWIMMING
-AI_1's CARNIVORE attacked You's second species!
-AI_1's CARNIVORE ate You's species!
-```
+Species that didn't get enough food may die:
 
-### Defense Mechanics:
-- **SWIMMING** blocks non-swimming carnivores
-- **RUNNING** has 50% chance (4-6 on dice roll)
-- **CAMOUFLAGE** hides unless carnivore has SHARP VISION
-- **HIGH BODY WEIGHT** blocks smaller carnivores
-- **BURROWING** protects if fed
-- **TAIL LOSS** saves species but loses a trait
-- **POISONOUS** kills the carnivore!
+1. **Check feeding**: Unfed species (with no FAT to convert) face extinction
+2. **Protections apply**:
+   - FAT TISSUE: Automatically consumed to meet the food requirement
+   - SYMBIOSIS: If paired correctly, a species survives even if unfed (partner must be alive and larger)
+   - BURROWING: Already applied during attacks; not checked again here
+3. **Remove extinct species**
+4. **Collect food**: Surviving species contribute their food tokens to your score pool
 
----
+Once extinction is done, check if the deck is depleted. If yes, proceed to final scoring. Otherwise, start a new round.
 
-## Extinction Phase (Automatic)
+## End Game & Scoring
 
-The game automatically:
-1. Removes any unfed species (they starve)
-2. Activates PIRACY (steals from unfed species)
-3. Collects food for scoring
-4. Checks if deck is empty
+When the deck runs low (fewer than 3 cards), the current round is the last.
 
-```
-=== Extinction Check ===
-You's species with GRAZING survived! (Food: 3)
-You's unfed species went extinct!
-```
-
----
-
-## End of Game
-
-When the deck runs out:
-
-```
-==================================================
-=== GAME OVER ===
-==================================================
-
-Final Scores:
-AI_1: 24 points
-You: 31 points
-
-🎉 You wins with 31 points!
-```
-
-### Score Breakdown:
+Final scoring:
 - **+2 points** per surviving species
-- **+1 point** per trait on survivors
-- **+1 bonus** for CARNIVORE and HIGH BODY WEIGHT traits
-- **+1 point** per food collected during game
+- **+1 point** per trait on each surviving species
+- **+1 bonus** for CARNIVORE and HIGH BODY WEIGHT on survivors
+- **+2 points** per PARASITE on surviving species (penalties and rewards!)
+- **+1 point** per food token in your collected pool
 
----
+The player with the highest score wins.
 
-## Example Game Walkthrough
+## Example Game Round
 
-### Round 1 - Card Play
-
+### Card Play
 ```
+Round 1 starts. You have 5 cards: SWIMMING, CARNIVORE, FAT TISSUE, GRAZING, PARASITE
+
 --- You's turn ---
-Your species:
-1: Body-size:1 Food:0/1 Traits:[]
-Your hand:
-1: SWIMMING
-2: CARNIVORE
-3: GRAZING
-Play card? Enter card number or 'q' to skip: 1
+You play SWIMMING as a new species. You're asked to discard a card to form the species.
+You discard PARASITE, so your species is created with SWIMMING.
 
-Add to species (1-1) or create new (0)? 0
-✓ Created new species (card SWIMMING used as species card)
+--- AI_1's turn ---
+AI plays a card on their species.
+
+--- You's turn ---
+You play CARNIVORE on your SWIMMING species.
+Now you have one species: [SWIMMING, CARNIVORE].
+
+--- AI_1's turn ---
+AI plays another card and passes.
+
+--- You's turn ---
+You play FAT TISSUE on your SWIMMING species.
+Now your species is at max traits (3): [SWIMMING, CARNIVORE, FAT TISSUE].
+You pass.
+
+All players have passed, so card play ends.
 ```
 
-Now you have 2 species.
-
+### Feeding
 ```
---- You's turn (continued) ---
-Your hand:
-1: CARNIVORE
-2: GRAZING
-Play card? Enter card number or 'q' to skip: 1
+Food bank: 6
 
-Add to species (1-2) or create new (0)? 1
-✓ Added CARNIVORE to species 1
-```
-
-You've built a CARNIVORE!
-
-### Round 1 - Feeding Phase
-
-```
 --- You's feeding turn ---
-Food bank: 5
-Your unfed species:
-1: Body-size:1 Food:0/1 Traits:[SWIMMING, CARNIVORE]
-2: Body-size:1 Food:0/1 Traits:[]
-Feed species 1-2 (or 'q' to skip): 1
+Your species is unfed (needs 1 food + 1 for CARNIVORE = 2 total).
+You have 3 options:
+  1: Feed from the food bank (take 1 food)
+  2: Use abilities (no options available yet)
+  3: Attack with your CARNIVORE
 
-✓ Fed species 1 (needs 1 total)
+You choose Option 1: Feed your species.
+Your species gets 1 food. Food bank now: 5. Your species: 1/2 fed.
+
+--- AI_1's feeding turn ---
+AI feeds their species.
+Food bank now: 4.
+
+--- You's feeding turn ---
+Your species still needs 1 more food.
+You choose Option 1 again: Feed your species.
+Your species gets 1 food. Food bank now: 3. Your species: 2/2 fed (fully fed).
+
+--- AI_1's feeding turn ---
+AI tries to feed, but then passes.
+
+--- You's feeding turn ---
+Your species is fully fed. If you take food now, it auto-stores to FAT TISSUE.
+You choose Option 3: Attack with your CARNIVORE.
+
+You target AI_1's species. It has no special defense.
+Attack succeeds: AI_1's species is removed. Your CARNIVORE gains 2 food.
+Since your species is already fed, the 2 food is auto-stored as FAT (1 fat token used of 1 available).
+
+--- AI_1's feeding turn ---
+AI has no unfed species, so passes.
+
+--- You's feeding turn ---
+You pass (nothing more to do).
+
+Final: All pass. Feeding ends.
 ```
 
-Your CARNIVORE is now fed and can attack!
-
-### Round 1 - Carnivore Attacks
-
+### Extinction
 ```
-=== Carnivore Attacks ===
-You's CARNIVORE attacked AI_1's species!
-You's CARNIVORE ate AI_1's species!
+No unfed species remain, so no extinctions.
+Your species survives with 1 food token (collected for final scoring).
+
+Deck check: Plenty of cards remain, so Round 1 is complete.
 ```
 
-You destroyed an enemy!
+## Strategy Tips
 
-### Round 1 - Extinction
+### Early Game (Rounds 1–2)
+- **Build diversity**: Create multiple species to spread risk
+- **Don't overdraft the food bank**: Leave some food for others; long-term reputation matters
+- **Defensive traits first**: Species without defense often die
 
-```
-=== Extinction Check ===
-You's species survived! (Food: 1)
-You's unfed species went extinct due to starvation!
-```
+### Mid Game (Rounds 3–5)
+- **Notice opponents' builds**: Is someone going for carnivores? Get SWIMMING or RUNNING
+- **Chain feeding engines**: COOPERATION + COMMUNICATION can feed many species from one action
+- **Fat up for scarcity**: If the food bank has been low, store FAT for lean rounds
 
-One species survives, one died from starvation.
+### Late Game (Final Rounds)
+- **Maximize survivors**: Each species is worth 2 points; preservation beats offense
+- **Collect food**: Food is scarce and worth points
+- **Avoid new species unless necessary**: Unfinished species often go extinct
 
----
+## Common Questions
 
-## Tips for Better Play
+**Q: Can I attack my own species?**  
+No, CARNIVORE only targets opponents' species.
 
-### Early Game (First 2 Rounds)
-1. Build diverse species first
-2. Don't be too aggressive immediately
-3. Get a mix of traits to adapt later
+**Q: Does FAT TISSUE auto-apply?**  
+Yes. If a species is fed and gets food, it automatically goes to FAT (if it has the trait and room).
 
-### Mid Game (Rounds 3-5)
-1. Notice what opponents are building
-2. Start defensive builds if they have carnivores
-3. Build feeding engines for scarce food rounds
+**Q: Can PARASITE be used offensively?**  
+Yes. Playing PARASITE on an opponent's species is often a powerful move.
 
-### Late Game (When Deck Gets Low)
-1. Go for maximum survival
-2. Make species as hard to kill as possible
-3. Collect food for scoring
+**Q: What if I can't feed all my species?**  
+Some will go extinct. It's a core mechanic: hard choices about which species survive.
 
-### Always Remember
-- **Food matters!** It's worth points at the end
-- **Diversity matters!** More species = more points
-- **Traits matter!** Stacked traits are powerful
-- **Don't overspecialize!** A mix of types is better
+**Q: Can I pass during feeding?**  
+Yes, but only if you have no unfed species or unfilled FAT (or the food bank is empty). Otherwise, you must act.
 
----
+## For More Details
 
-## Troubleshooting
-
-**"Game doesn't progress when I press q"**
-- Make sure you type 'q' and press Enter
-- 'q' skips your turn and ends that phase when all players pass
-
-**"Can't add trait to species"**
-- Each species can only have 3 traits max
-- Create a new species instead
-
-**"Species keeps going extinct"**
-- Not getting enough food from the bank
-- Try using HIBERNATION or GRAZING traits
-- Make sure parasite load isn't too high
-
-**"How do I attack?"**
-- You need CARNIVORE trait on a species
-- Attacks happen automatically during Carnivore Attack Phase
-- You don't control them - they happen in player order
-
-**"Food bank is too low"**
-- That's the luck of the dice roll!
-- HIBERNATION and PIRACY help during low food
-- GRAZING ensures at least some food
-
+See `QUICK_REFERENCE.md` for a trait-by-trait breakdown, attack resolution flowcharts, and scoring examples.
