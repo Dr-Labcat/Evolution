@@ -6,10 +6,12 @@ from assets import gui
 import random
 
 class Game:
-    def __init__(self, player_names):
+    def __init__(self, player_names, game_window=None):
         self.deck = Deck()
         self.deck.build_russian_deck()
         self.players = [Player(name, is_ai=("AI" in name)) for name in player_names]
+        self.game_window = game_window  # Store reference to GUI window
+        
         # Deal 5 cards to each player at game start and let them create their first species
         for p in self.players:
             p.hand.extend(self.deck.draw(5))
@@ -20,35 +22,104 @@ class Game:
         self.skip_initial_draw = True
 
         # Create initial species for each player (silently, no verbose prompts)
-        for p in self.players:
-            if not p.is_ai:
-                # Show hand and ask which card to forfeit (mandatory)
-                gui.clear_screen()
-                gui.print_header(f"{p.name}, Choose a Card to Forfeit for Starting Species")
-                gui.show_hand(p.hand)
-                while True:
-                    choice = input(gui.console.render_str("[bold cyan]Card number: [/bold cyan]")).strip()
-                    if not choice.isdigit():
-                        gui.print_error("Please enter a number")
-                        continue
-                    ci = int(choice)
-                    if 1 <= ci <= len(p.hand):
-                        p.hand.pop(ci-1)
-                        p.create_species()
-                        break
-                    else:
-                        gui.print_error("Invalid choice")
-            else:
-                # AI: create species and forfeit random card
-                p.create_species()
-                if p.hand:
-                    p.hand.pop(random.randrange(len(p.hand)))
-        
-        gui.clear_screen()
+        if self.game_window:
+            # Using graphical GUI
+            for p in self.players:
+                if not p.is_ai:
+                    # Ask human player which card to forfeit
+                    forfeit_options = [f"{idx+1}. {card.name}" for idx, card in enumerate(p.hand)]
+                    forfeit_options.append("Skip (random card)")
+                    self.game_window.add_message(f"{p.name}: Choose a card to forfeit for starting species", "cyan")
+                    choice = self.get_gui_choice("Card to forfeit:", forfeit_options)
+                    p.create_species()
+                    if choice < len(p.hand):
+                        p.hand.pop(choice)
+                    elif p.hand:
+                        p.hand.pop(random.randrange(len(p.hand)))
+                else:
+                    # AI: create species and forfeit random card
+                    p.create_species()
+                    if p.hand:
+                        p.hand.pop(random.randrange(len(p.hand)))
+        else:
+            # Using terminal GUI
+            for p in self.players:
+                if not p.is_ai:
+                    # Show hand and ask which card to forfeit (mandatory)
+                    gui.clear_screen()
+                    gui.print_header(f"{p.name}, Choose a Card to Forfeit for Starting Species")
+                    gui.show_hand(p.hand)
+                    while True:
+                        choice = input(gui.console.render_str("[bold cyan]Card number: [/bold cyan]")).strip()
+                        if not choice.isdigit():
+                            gui.print_error("Please enter a number")
+                            continue
+                        ci = int(choice)
+                        if 1 <= ci <= len(p.hand):
+                            p.hand.pop(ci-1)
+                            p.create_species()
+                            break
+                        else:
+                            gui.print_error("Invalid choice")
+                else:
+                    # AI: create species and forfeit random card
+                    p.create_species()
+                    if p.hand:
+                        p.hand.pop(random.randrange(len(p.hand)))
+            
+            gui.clear_screen()
 
         self.round_number = 0
         self.food_bank = 0
         self.game_active = True
+    
+    def update_gui_display(self):
+        """Update the graphical GUI with current game state."""
+        if not self.game_window:
+            return
+        
+        from assets.gui_bridge import update_species_display, add_message
+        
+        # Update species table
+        update_species_display(self.game_window, self.players)
+        
+        # Update round and food
+        self.game_window.update_round(self.round_number)
+        self.game_window.update_food(self.food_bank)
+        
+        # Update player hand if human player
+        human_player = next((p for p in self.players if not p.is_ai), None)
+        if human_player:
+            self.game_window.update_hand([c.name if len(c.options) <= 1 else f"{c.name}/{c.options[1]}" for c in human_player.hand])
+        
+        self.game_window.root.update()
+    
+    def get_gui_choice(self, prompt, options):
+        """Get choice from GUI or terminal fallback."""
+        if self.game_window:
+            result = self.game_window.get_input_sync(prompt, options)
+            return result if result is not None else -1
+        else:
+            for i, opt in enumerate(options, 1):
+                print(f"{i}. {opt}")
+            while True:
+                try:
+                    choice = input(f"{prompt}: ")
+                    if choice.lower() == 'q':
+                        return -1
+                    idx = int(choice) - 1
+                    if 0 <= idx < len(options):
+                        return idx
+                except (ValueError, EOFError):
+                    pass
+    
+    def add_gui_message(self, message, msg_type="info"):
+        """Add message to GUI or print to terminal."""
+        if self.game_window:
+            self.game_window.add_message(message, msg_type)
+            self.game_window.root.update()
+        else:
+            print(message)
 
     # -----------------------------
     # Food Bank Determination
@@ -72,7 +143,10 @@ class Game:
 
     def show_species_state(self):
         """Print current species for all players (without revealing hands)."""
-        gui.show_species_table(self.players)
+        if self.game_window:
+            self.update_gui_display()
+        else:
+            gui.show_species_table(self.players)
 
     # -----------------------------
     # Card Play Phase
@@ -116,14 +190,27 @@ class Game:
                 # Human player
                 # -----------------
                 if not p.is_ai:
-                    gui.clear_screen()
-                    gui.show_player_turn(p)
-                    gui.show_species_table(self.players)
-                    gui.show_hand(p.hand)
+                    if not self.game_window:
+                        gui.clear_screen()
+                        gui.show_player_turn(p)
+                        gui.show_species_table(self.players)
+                        gui.show_hand(p.hand)
                     
-                    card_idx = gui.get_card_choice(p.hand, "Play card")
-                    if card_idx is None:
-                        # Human chose to end card play: give AIs one final round then stop
+                    # Create hand display options
+                    hand_options = [f"{c.name}" if len(c.options) <= 1 else f"{c.name} / {c.options[1]}" for c in p.hand]
+                    hand_options.append("Skip turn")
+                    
+                    # Update GUI display
+                    if self.game_window:
+                        self.game_window.add_message(f"Your turn! Choose a card or skip.", "cyan")
+                        self.update_gui_display()
+                    
+                    # Get card choice
+                    card_idx = self.get_gui_choice(f"{p.name} - Choose card to play (or skip)", hand_options)
+                    
+                    if card_idx == len(hand_options) - 1 or card_idx == -1:
+                        # Human chose to skip/end card play
+                        self.add_gui_message(f"{p.name} skipped their turn", "info")
                         end_after_human_skip = True
                         self.show_species_state()
                         break
@@ -132,10 +219,10 @@ class Game:
                     card = p.hand[card_idx]
                     # If the card has multiple functions, prompt the human to choose
                     if hasattr(card, 'options') and len(card.options) > 1:
-                        gui.print_warning(f"This card has multiple functions:")
+                        self.add_gui_message(f"This card has multiple functions", "warning")
                         options = [str(opt) for opt in card.options]
-                        mode_choice = gui.get_numbered_choice(options, "Choose function")
-                        if mode_choice is not None:
+                        mode_choice = self.get_gui_choice("Choose card function", options)
+                        if mode_choice >= 0:
                             card.choose_mode(mode_choice)
                         else:
                             card.choose_mode(0)
@@ -144,35 +231,38 @@ class Game:
                     if card.name == "PARASITE" or (hasattr(card, 'options') and any('PARASITE' in opt for opt in card.options)):
                         opponents = [op for op in self.players if op != p and op.species]
                         if opponents:
-                            target_player = gui.show_opponent_selection(p, opponents)
+                            opponent_names = [op.name for op in opponents]
+                            target_idx = self.get_gui_choice(f"Choose opponent to infect", opponent_names)
+                            target_player = opponents[target_idx] if 0 <= target_idx < len(opponents) else None
+                            
                             if target_player and target_player.species:
                                 species_list = [str(sp) for sp in target_player.species]
-                                sp_choice = gui.get_numbered_choice(species_list, "Which species to infect")
-                                if sp_choice is not None:
+                                sp_choice = self.get_gui_choice("Which species to infect", species_list)
+                                if 0 <= sp_choice < len(target_player.species):
                                     target_player.species[sp_choice].apply_parasite()
                                     p.hand.remove(card)
-                                    gui.print_success(f"Infected {target_player.name}'s species with PARASITE!")
+                                    self.add_gui_message(f"Infected {target_player.name}'s species with PARASITE!", "success")
                                     actions_remaining = True
                                     continue
-                        gui.print_error("Invalid target!")
+                        self.add_gui_message("Invalid target!", "error")
                         continue
                     
                     # Choose target
                     if p.species:
                         choices = [str(sp) for sp in p.species] + ["Create new species"]
-                        target = gui.get_numbered_choice(choices, "Add to species or create new")
+                        target = self.get_gui_choice("Add to species or create new", choices)
                         
                         if target == len(p.species):  # Create new
                             new_sp = p.create_species()
                             if card in p.hand:
                                 p.hand.remove(card)
-                            gui.print_info(f"Created new species")
+                            self.add_gui_message(f"Created new species", "success")
                             # Note: When creating a new species, the card is just consumed to create it
                             # It does NOT become a trait, so no pairing for new species creation
                         elif target is not None and 0 <= target < len(p.species):
                             success = p.play_card(card, p.species[target])
                             if success:
-                                gui.print_success(f"Added {card.name} to species {target + 1}")
+                                self.add_gui_message(f"Added {card.name} to species {target + 1}", "success")
                                 # Handle pair traits ONLY when adding to existing species
                                 if card.name in ["COMMUNICATION", "SYMBIOSIS", "COOPERATION"]:
                                     base_sp = p.species[target]
@@ -187,20 +277,20 @@ class Game:
                                             all_species = own_candidates
                                     if all_species:
                                         sp_choices = [f"{op.name} - {sp_item}" for op, sp_item in all_species]
-                                        sp_choice = gui.get_numbered_choice(sp_choices, "Choose species to pair with", allow_cancel=True)
-                                        if sp_choice is not None and sp_choice < len(all_species):
+                                        sp_choice = self.get_gui_choice("Choose species to pair with (or skip)", sp_choices + ["Skip pairing"])
+                                        if sp_choice >= 0 and sp_choice < len(all_species):
                                             partner_op, partner_sp = all_species[sp_choice]
                                             base_sp.pair_partners[partner_sp] = card
                                             partner_sp.pair_partners[base_sp] = card
-                                            gui.print_success(f"Paired with {partner_op.name}'s {partner_sp}")
+                                            self.add_gui_message(f"Paired with {partner_op.name}'s {partner_sp}", "success")
                             else:
-                                gui.print_error("Species already has 3 traits!")
+                                self.add_gui_message("Species already has 3 traits!", "error")
                     else:
                         # No species yet: must create new
                         p.create_species()
                         if card in p.hand:
                             p.hand.remove(card)
-                        gui.print_info(f"Created new species")
+                        self.add_gui_message(f"Created new species", "success")
 
                 # -----------------
                 # AI player
@@ -321,26 +411,40 @@ class Game:
                     actions_remaining = True
                     # Show full table so player can see AI animals before choosing
                     self.show_species_state()
-                    gui.show_player_turn(p)
-                    gui.show_food_bank(self.food_bank)
-                    gui.print_info("Feedable species:")
-                    for idx, sp in enumerate(feedable_species, 1):
-                        fat_marker = " (can convert to fat)" if sp.is_fed() and sp.has_trait("FAT TISSUE") else ""
-                        gui.print_info(f"  {idx}: {sp}{fat_marker}")
+                    if not self.game_window:
+                        gui.show_player_turn(p)
+                        gui.show_food_bank(self.food_bank)
+                        gui.print_info("Feedable species:")
+                        for idx, sp in enumerate(feedable_species, 1):
+                            fat_marker = " (can convert to fat)" if sp.is_fed() and sp.has_trait("FAT TISSUE") else ""
+                            gui.print_info(f"  {idx}: {sp}{fat_marker}")
+                    else:
+                        self.add_gui_message(f"Food bank: {self.food_bank}", "info")
+                        self.update_gui_display()
                     
-                    choice = input(f"Feed species 1-{len(feedable_species)} (or 'q' to skip): ")
-                    if choice.lower() == 'q':
-                        continue
-                    if not choice.isdigit() or int(choice)-1 not in range(len(feedable_species)):
-                        gui.print_error("Invalid!")
+                    # Build feedable species options
+                    feed_options = []
+                    for idx, sp in enumerate(feedable_species):
+                        fat_marker = " (fat)" if sp.is_fed() and sp.has_trait("FAT TISSUE") else ""
+                        feed_options.append(f"{sp}{fat_marker}")
+                    feed_options.append("Skip feeding")
+                    
+                    choice = self.get_gui_choice(f"Feed species 1-{len(feedable_species)} (or skip)", feed_options)
+                    
+                    if choice == len(feed_options) - 1 or choice == -1:
                         continue
                     
-                    sp = feedable_species[int(choice)-1]
+                    if choice < 0 or choice >= len(feedable_species):
+                        self.add_gui_message("Invalid!", "error")
+                        continue
+                    
+                    sp = feedable_species[choice]
                     
                     # If species has GRAZING, offer manual activation to remove 1 from bank (doesn't count as eating)
                     if sp.has_trait("GRAZING"):
-                        gchoice = input("Activate GRAZING to remove 1 from bank without feeding (y/N)? ")
-                        if gchoice.lower() == 'y':
+                        grazing_options = ["Activate GRAZING (remove 1 food)", "Don't activate GRAZING"]
+                        gchoice = self.get_gui_choice("This species has GRAZING", grazing_options)
+                        if gchoice == 0:
                             if self.food_bank > 0:
                                 self.food_bank -= 1
                                 gui.print_success(f"{p.name} activated GRAZING: removed 1 from food bank.")
@@ -443,8 +547,10 @@ class Game:
     # Carnivore Attacks
     # -----------------------------
     def carnivore_attacks(self):
-        gui.clear_screen()
-        gui.print_header("Carnivore Attacks")
+        if not self.game_window:
+            gui.clear_screen()
+            gui.print_header("Carnivore Attacks")
+        
         for attacker in self.players:
             for attacker_sp in attacker.species[:]:
                 if "CARNIVORE" not in [t.name for t in attacker_sp.traits]:
@@ -466,17 +572,26 @@ class Game:
                 # If attacker is human, let them choose target
                 if not attacker.is_ai:
                     self.show_species_state()
-                    print(f"\n{attacker.name}, choose target for your CARNIVORE (or 'q' to skip):")
-                    for idx, (defender, defender_sp, has_defense, defense_type) in enumerate(viable, 1):
-                        desc = defender_sp.get_defense_description(defense_type) if has_defense else "No special defense"
-                        print(f"{idx}: {defender.name} - {defender_sp} | Defense: {desc}")
-                    choice = input(f"Choose 1-{len(viable)} or 'q': ")
-                    if choice.lower() == 'q':
+                    
+                    # Build target options
+                    target_options = []
+                    for defender, defender_sp, has_defense, defense_type in viable:
+                        desc = defender_sp.get_defense_description(defense_type) if has_defense else "No defense"
+                        target_options.append(f"{defender.name} - {defender_sp} | {desc}")
+                    target_options.append("Skip attack")
+                    
+                    if self.game_window:
+                        self.add_gui_message(f"Choose target for CARNIVORE attack", "warning")
+                        self.update_gui_display()
+                    
+                    choice = self.get_gui_choice(f"Choose attack target (or skip)", target_options)
+                    
+                    if choice == len(target_options) - 1 or choice == -1:
                         continue
-                    if not choice.isdigit() or int(choice)-1 not in range(len(viable)):
-                        print("Invalid choice, skipping attack.")
+                    if choice < 0 or choice >= len(viable):
+                        self.add_gui_message("Invalid choice, skipping attack.", "error")
                         continue
-                    target = viable[int(choice)-1]
+                    target = viable[choice]
                     defender, defender_sp, has_defense, defense_type = target
 
                     # refresh table after human target selection
@@ -495,29 +610,36 @@ class Game:
 
                         if all_others:
                             if not defender.is_ai:
-                                print(f"{defender.name}: {defender_sp} has MIMICRY. Choose species to redirect attack to (or 'n' to keep current target):")
-                                for idx_sp, (op, sp_item) in enumerate(all_others, 1):
-                                    print(f"{idx_sp}: {op.name} - {sp_item}")
-                                choice = input("Choose number or 'n': ")
-                                if choice.isdigit() and 1 <= int(choice) <= len(all_others):
-                                    partner_op, partner_sp = all_others[int(choice)-1]
+                                # Build redirect options
+                                redirect_options = []
+                                for op, sp_item in all_others:
+                                    redirect_options.append(f"{op.name} - {sp_item}")
+                                redirect_options.append("Keep current target")
+                                
+                                if self.game_window:
+                                    self.add_gui_message(f"{defender_sp} has MIMICRY! Choose redirect target", "warning")
+                                
+                                choice = self.get_gui_choice(f"Redirect attack to (or keep current)", redirect_options)
+                                
+                                if choice >= 0 and choice < len(all_others):
+                                    partner_op, partner_sp = all_others[choice]
                                     defender = partner_op
                                     defender_sp = partner_sp
-                                    print(f"Attack redirected to {defender.name}'s {defender_sp} due to MIMICRY.")
+                                    self.add_gui_message(f"Attack redirected to {defender.name}'s {defender_sp} by MIMICRY!", "info")
                             else:
                                 # AI defender: pick random other species to redirect to
                                 partner_op, partner_sp = random.choice(all_others)
                                 defender = partner_op
                                 defender_sp = partner_sp
-                                print(f"{defender.name}'s MIMICRY redirected attack to {defender_sp}.")
+                                self.add_gui_message(f"MIMICRY redirected attack to {defender_sp}!", "info")
 
                     if defense_type == "RUNNING":
                         roll = random.randint(1, 6)
                         if roll >= 4:
-                            print(f"{defender.name}'s species RAN AWAY! (rolled {roll})")
+                            self.add_gui_message(f"{defender.name}'s species RAN AWAY! (rolled {roll})", "success")
                             continue
                         else:
-                            print(f"{defender.name}'s species tried to run but failed (rolled {roll})")
+                            self.add_gui_message(f"{defender.name}'s species tried to run but failed (rolled {roll})", "warning")
 
                     elif defense_type == "TAIL LOSS":
                         if defender_sp.sacrifice_trait():
@@ -674,23 +796,36 @@ class Game:
         """Play game rounds until deck runs out."""
         while self.game_active:
             self.round_number += 1
-            gui.clear_screen()
-            gui.show_round_header(self.round_number)
+            
+            if not self.game_window:
+                gui.clear_screen()
+                gui.show_round_header(self.round_number)
+            else:
+                self.game_window.add_message(f"Starting Round {self.round_number}...", "cyan")
             
             # Check if deck has enough cards
             if len(self.deck.cards) < 3:
-                gui.print_warning("Deck running low - this is the final round!")
+                msg = "Deck running low - this is the final round!"
+                if self.game_window:
+                    self.game_window.add_message(msg, "warning")
+                else:
+                    gui.print_warning(msg)
                 self.game_active = False
             
             self.card_play_phase()
             self.feeding_phase()
             self.carnivore_attacks()
             self.extinction_check()
+            self.update_gui_display()
             
             if not self.game_active:
                 break
 
-        gui.clear_screen()
+        if self.game_window:
+            self.game_window.add_message("Game finished! Calculating scores...", "success")
+        else:
+            gui.clear_screen()
+        
         scores = self.calculate_scores()
         
         # Display final scores
