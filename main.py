@@ -41,21 +41,7 @@ def main():
     root.update()
     
     game = Game(player_names, game_window)
-    
-    # Run game in a separate thread to keep GUI responsive
-    import threading
-    def run_game():
-        try:
-            game.play_game()
-            game_window.add_message("Game finished!", "success")
-        except Exception as e:
-            game_window.add_message(f"Error: {str(e)}", "error")
-    
-    game_thread = threading.Thread(target=run_game, daemon=True)
-    game_thread.start()
-    
-    # Keep the window running
-    root.mainloop()
+    game.play_game()
 
 if __name__ == "__main__":
     main()
