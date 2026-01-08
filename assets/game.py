@@ -2,24 +2,8 @@
 from assets.deck import Deck
 from assets.player import Player
 from assets.ai import AIStrategy
+from assets import gui
 import random
-
-# simple ANSI colors (works in modern terminals)
-RESET = "\033[0m"
-BOLD = "\033[1m"
-CYAN = "\033[36m"
-GREEN = "\033[32m"
-YELLOW = "\033[33m"
-MAGENTA = "\033[35m"
-RED = "\033[31m"
-BLUE = "\033[34m"
-
-def color(text, code):
-    return f"{code}{text}{RESET}"
-
-def clear_screen(lines=3):
-    """Clear screen by printing newlines (works cross-platform)."""
-    print("\n" * lines)
 
 class Game:
     def __init__(self, player_names):
@@ -39,31 +23,32 @@ class Game:
         for p in self.players:
             if not p.is_ai:
                 # Show hand and ask which card to forfeit (mandatory)
-                print(color(f"\n{p.name}, choose a card to forfeit for your starting species:", CYAN))
-                for idx, card in enumerate(p.hand, 1):
-                    print(f"  {color(str(idx) + ':', BOLD)} {card}")
+                gui.clear_screen()
+                gui.print_header(f"{p.name}, Choose a Card to Forfeit for Starting Species")
+                gui.show_hand(p.hand)
                 while True:
-                    choice = input(color("Card number: ", YELLOW))
+                    choice = input(gui.console.render_str("[bold cyan]Card number: [/bold cyan]")).strip()
                     if not choice.isdigit():
+                        gui.print_error("Please enter a number")
                         continue
                     ci = int(choice)
                     if 1 <= ci <= len(p.hand):
                         p.hand.pop(ci-1)
                         p.create_species()
                         break
+                    else:
+                        gui.print_error("Invalid choice")
             else:
                 # AI: create species and forfeit random card
                 p.create_species()
                 if p.hand:
                     p.hand.pop(random.randrange(len(p.hand)))
         
-        clear_screen(10)  # Large gap before round starts
+        gui.clear_screen()
 
         self.round_number = 0
         self.food_bank = 0
         self.game_active = True
-        
-        clear_screen(15)
 
     # -----------------------------
     # Food Bank Determination
@@ -87,35 +72,19 @@ class Game:
 
     def show_species_state(self):
         """Print current species for all players (without revealing hands)."""
-        print("\n" + color("="*40, MAGENTA))
-        print(color(" Table: Species by Player", BOLD))
-        print(color("="*40, MAGENTA))
-        for p in self.players:
-            header = f"{p.name}:"
-            print(color(header, BOLD))
-            if p.species:
-                for idx, sp in enumerate(p.species, 1):
-                    line = f"  {idx}: {sp}"
-                    # color player's species differently from AI
-                    if p.is_ai:
-                        print(color(line, RED))
-                    else:
-                        print(color(line, CYAN))
-            else:
-                print("  (no species)")
-        print(color("="*40, MAGENTA))
+        gui.show_species_table(self.players)
 
     # -----------------------------
     # Card Play Phase
     # -----------------------------
     def card_play_phase(self):
-        clear_screen(0)
-        print(color("=== Card Play Phase ===", BLUE))
+        gui.clear_screen()
+        gui.print_header("Card Play Phase")
 
         # Show deck counts (total fixed at 84)
         try:
             total_cards = self.deck.count()
-            print(color(f"Deck: {total_cards}/84 cards remaining", BOLD))
+            gui.show_deck_count(total_cards, 84)
         except Exception:
             pass
 
@@ -147,150 +116,91 @@ class Game:
                 # Human player
                 # -----------------
                 if not p.is_ai:
-                    print(f"\n{color('=' * 50, BLUE)}")
-                    turn_text = p.name + "'s turn"
-                    print(f"{color(turn_text, BOLD)}")
-                    print(f"{color('=' * 50, BLUE)}")
-                    print(f"\n{color('Your hand:', BOLD)}")
-                    for idx, card in enumerate(p.hand, 1):
-                        print(f"  {idx}: {card}")
-                    print()
-                    choice = input(color("Play card? Enter card number or 'q' to skip: ", BOLD))
-                    if choice.lower() == 'q':
+                    gui.clear_screen()
+                    gui.show_player_turn(p)
+                    gui.show_species_table(self.players)
+                    gui.show_hand(p.hand)
+                    
+                    card_idx = gui.get_card_choice(p.hand, "Play card")
+                    if card_idx is None:
                         # Human chose to end card play: give AIs one final round then stop
                         end_after_human_skip = True
                         self.show_species_state()
                         break
                     
                     actions_remaining = True
-                    if not choice.isdigit() or int(choice)-1 not in range(len(p.hand)):
-                        print("Invalid!")
-                        continue
-                    card = p.hand[int(choice)-1]
+                    card = p.hand[card_idx]
                     # If the card has multiple functions, prompt the human to choose
                     if hasattr(card, 'options') and len(card.options) > 1:
-                        print(f"\n{color('This card has multiple functions:', YELLOW)}")
-                        for mi, mo in enumerate(card.options, 1):
-                            print(f"  {mi}: {mo}")
-                        mchoice = input(color("Choose function number (or press Enter for default): ", BOLD))
-                        if mchoice.isdigit() and 1 <= int(mchoice) <= len(card.options):
-                            card.choose_mode(int(mchoice)-1)
+                        gui.print_warning(f"This card has multiple functions:")
+                        options = [str(opt) for opt in card.options]
+                        mode_choice = gui.get_numbered_choice(options, "Choose function")
+                        if mode_choice is not None:
+                            card.choose_mode(mode_choice)
                         else:
-                            # default to first
                             card.choose_mode(0)
-
+                    
                     # Check if PARASITE (negative trait to place on opponent)
-                    if "ПАРАЗИТ" in card.name or card.name == "PARASITE":
-                        print(f"\n{color('Which opponent species to infect with PARASITE?', YELLOW)}")
-                        target_player = None
-                        for idx, opponent in enumerate([op for op in self.players if op != p], 1):
-                            print(f"  {idx}: {opponent.name}")
-                        
-                        op_choice = input(color("Choose opponent (or 'q' to cancel): ", BOLD))
-                        if op_choice.lower() == 'q':
-                            continue
-                        if not op_choice.isdigit():
-                            print("Invalid!")
-                            continue
-                        
-                        opponents = [op for op in self.players if op != p]
-                        if int(op_choice)-1 not in range(len(opponents)):
-                            print("Invalid opponent!")
-                            continue
-                        
-                        target_player = opponents[int(op_choice)-1]
-                        if target_player.species:
-                            print(f"\n{color('Which species to infect?', YELLOW)}")
-                            for idx, sp in enumerate(target_player.species, 1):
-                                print(f"  {idx}: {sp}")
-                            sp_choice = input(color("Choose species: ", BOLD))
-                            if sp_choice.isdigit() and 1 <= int(sp_choice) <= len(target_player.species):
-                                target_sp = target_player.species[int(sp_choice)-1]
-                                target_sp.apply_parasite()
-                                p.hand.remove(card)
-                                msg = f"Infected {target_player.name}'s species with PARASITE!"
-                                print(f"\n{color(msg, GREEN)}")
-                                actions_remaining = True
-                                continue
-                        print("Invalid target!")
+                    if card.name == "PARASITE" or (hasattr(card, 'options') and any('PARASITE' in opt for opt in card.options)):
+                        opponents = [op for op in self.players if op != p and op.species]
+                        if opponents:
+                            target_player = gui.show_opponent_selection(p, opponents)
+                            if target_player and target_player.species:
+                                species_list = [str(sp) for sp in target_player.species]
+                                sp_choice = gui.get_numbered_choice(species_list, "Which species to infect")
+                                if sp_choice is not None:
+                                    target_player.species[sp_choice].apply_parasite()
+                                    p.hand.remove(card)
+                                    gui.print_success(f"Infected {target_player.name}'s species with PARASITE!")
+                                    actions_remaining = True
+                                    continue
+                        gui.print_error("Invalid target!")
                         continue
-
+                    
                     # Choose target
                     if p.species:
-                        target = input(color(f"Add to species (1-{len(p.species)}) or create new (0)? ", BOLD))
-                        if not target.isdigit():
-                            print("Invalid input!")
-                            continue
-                        target = int(target)
-                        if target == 0:
-                            # Create new species; remove card manually
+                        choices = [str(sp) for sp in p.species] + ["Create new species"]
+                        target = gui.get_numbered_choice(choices, "Add to species or create new")
+                        
+                        if target == len(p.species):  # Create new
                             new_sp = p.create_species()
                             if card in p.hand:
                                 p.hand.remove(card)
-                            print(f"Created new species (card {card} used but NOT a trait)")
-                            # If the card is a pair trait, ask which species to pair with
-                            if card.name in ["COMMUNICATION", "SYMBIOSIS", "COOPERATION"]:
-                                # List species to choose partner. For COOPERATION, prefer own species only.
-                                all_species = []
-                                # For COOPERATION prefer only player's own other species
-                                if card.name == "COOPERATION":
-                                    for sp_item in p.species:
-                                        if sp_item is not new_sp:
-                                            all_species.append((p, sp_item))
-                                # If no own candidates (or other pair types), include all species on table
-                                if not all_species:
-                                    for op in self.players:
-                                        for idx_sp, sp_item in enumerate(op.species, 1):
-                                            all_species.append((op, sp_item))
-                                if all_species:
-                                    print("Choose species to pair with:")
-                                    for idx_sp, (op, sp_item) in enumerate(all_species, 1):
-                                        print(f"{idx_sp}: {op.name} - {sp_item}")
-                                    choice_sp = input("Choose partner species number (or 'q' to skip): ")
-                                    if choice_sp.isdigit() and 1 <= int(choice_sp) <= len(all_species):
-                                        partner_op, partner_sp = all_species[int(choice_sp)-1]
-                                        new_sp.pair_partners[partner_sp] = card
-                                        partner_sp.pair_partners[new_sp] = card
-                                        print(f"Paired {new_sp} with {partner_op.name}'s {partner_sp} for {card.name}.")
-                        elif 1 <= target <= len(p.species):
-                            success = p.play_card(card, p.species[target-1])
+                            gui.print_info(f"Created new species")
+                            # Note: When creating a new species, the card is just consumed to create it
+                            # It does NOT become a trait, so no pairing for new species creation
+                        elif target is not None and 0 <= target < len(p.species):
+                            success = p.play_card(card, p.species[target])
                             if success:
-                                print(f"Added {card} to species {target}")
-                                # If it's a pair trait, ask which species to pair with
+                                gui.print_success(f"Added {card.name} to species {target + 1}")
+                                # Handle pair traits ONLY when adding to existing species
                                 if card.name in ["COMMUNICATION", "SYMBIOSIS", "COOPERATION"]:
-                                    base_sp = p.species[target-1]
+                                    base_sp = p.species[target]
                                     all_species = []
                                     for op in self.players:
-                                        for idx_sp, sp_item in enumerate(op.species, 1):
-                                            # show all species except the base species
-                                            if sp_item is base_sp:
-                                                continue
-                                            all_species.append((op, sp_item))
+                                        for sp_item in op.species:
+                                            if sp_item is not base_sp:
+                                                all_species.append((op, sp_item))
+                                    if all_species and card.name == "COOPERATION":
+                                        own_candidates = [(p, sp_item) for sp_item in p.species if sp_item is not base_sp]
+                                        if own_candidates:
+                                            all_species = own_candidates
                                     if all_species:
-                                        # For COOPERATION prefer own species only
-                                        if card.name == "COOPERATION":
-                                            own_candidates = [(p, sp_item) for sp_item in p.species if sp_item is not base_sp]
-                                            if own_candidates:
-                                                all_species = own_candidates
-                                        print("Choose species to pair with:")
-                                        for idx_sp, (op, sp_item) in enumerate(all_species, 1):
-                                            print(f"{idx_sp}: {op.name} - {sp_item}")
-                                        choice_sp = input("Choose partner species number (or 'q' to skip): ")
-                                        if choice_sp.isdigit() and 1 <= int(choice_sp) <= len(all_species):
-                                            partner_op, partner_sp = all_species[int(choice_sp)-1]
+                                        sp_choices = [f"{op.name} - {sp_item}" for op, sp_item in all_species]
+                                        sp_choice = gui.get_numbered_choice(sp_choices, "Choose species to pair with", allow_cancel=True)
+                                        if sp_choice is not None and sp_choice < len(all_species):
+                                            partner_op, partner_sp = all_species[sp_choice]
                                             base_sp.pair_partners[partner_sp] = card
                                             partner_sp.pair_partners[base_sp] = card
-                                            print(f"Paired {base_sp} with {partner_op.name}'s {partner_sp} for {card.name}.")
+                                            gui.print_success(f"Paired with {partner_op.name}'s {partner_sp}")
                             else:
-                                print("Species already has 3 traits!")
-                        else:
-                            print("Invalid species number!")
+                                gui.print_error("Species already has 3 traits!")
                     else:
                         # No species yet: must create new
                         p.create_species()
                         if card in p.hand:
                             p.hand.remove(card)
-                        print(f"Created new species (card {card} used but NOT a trait)")
+                        gui.print_info(f"Created new species")
 
                 # -----------------
                 # AI player
@@ -321,7 +231,7 @@ class Game:
                             card.choose_mode(0)
 
                         # Handle PARASITE specially
-                        if ("ПАРАЗИТ" in card.name or card.name == "PARASITE") and opponents:
+                        if (card.name == "PARASITE" or (hasattr(card, 'options') and any('PARASITE' in opt for opt in card.options))) and opponents:
                             target_player = random.choice([op for op in opponents if op.species])
                             if target_player and target_player.species:
                                 target_sp = random.choice(target_player.species)
@@ -352,7 +262,7 @@ class Game:
                                     partner_sp = random.choice(candidates)
                                     base_sp.pair_partners[partner_sp] = card
                                     partner_sp.pair_partners[base_sp] = card
-                                    print(f"{p.name} (AI) paired {base_sp} with {partner_sp} for {card.name}.")
+                                    gui.print_info(f"{p.name} (AI) paired {base_sp} with {partner_sp} for {card.name}.")
                         else:
                             p.create_species()
                             if card in p.hand:
@@ -365,165 +275,18 @@ class Game:
             # show table once after each full cycle of player actions
             self.show_species_state()
             if end_after_human_skip:
-                # Final AI-only round: each AI may play one card, then end card play phase
-                for ai in [pl for pl in self.players if pl.is_ai]:
-                    if not ai.hand:
-                        continue
-                    # AI chooses a single card to play using strategy
-                    opponents = [pl for pl in self.players if pl != ai]
-                    hand_with_scores = [(c, AIStrategy.evaluate_trait_value(c, ai, opponents, self.food_bank)) for c in ai.hand]
-                    hand_with_scores.sort(key=lambda x: x[1], reverse=True)
-                    if hand_with_scores and hand_with_scores[0][1] > -50:
-                        card = hand_with_scores[0][0]
-                    elif hand_with_scores:
-                        card = random.choice(hand_with_scores[:min(3, len(hand_with_scores))])[0]
-                    else:
-                        card = random.choice(ai.hand)
-
-                    # Play or create species
-                    if card.name == "PARASITE":
-                        targets = [op for op in opponents if op.species]
-                        if targets:
-                            target_player = random.choice(targets)
-                            target_sp = random.choice(target_player.species)
-                            target_sp.apply_parasite()
-                            ai.hand.remove(card)
-                            continue
-
-                    target_idx = AIStrategy.choose_target_species(ai, card)
-                    if target_idx is not None:
-                        success = ai.play_card(card, ai.species[target_idx])
-                        if success and card.name in ["COMMUNICATION", "SYMBIOSIS", "COOPERATION"]:
-                            base_sp = ai.species[target_idx]
-                            # For COOPERATION, only pair with own species
-                            if card.name == "COOPERATION":
-                                candidates = [sp for sp in ai.species if sp is not base_sp]
-                            else:
-                                candidates = [sp for sp in ai.species if sp is not base_sp]
-                                if not candidates:
-                                    for op in self.players:
-                                        if op is ai:
-                                            continue
-                                        candidates.extend(op.species)
-                            if candidates:
-                                partner_sp = random.choice(candidates)
-                                base_sp.pair_partners[partner_sp] = card
-                                partner_sp.pair_partners[base_sp] = card
-                                print(f"{ai.name} (AI) paired {base_sp} with {partner_sp} for {card.name}.")
-                    else:
-                        ai.create_species()
-                        if card in ai.hand:
-                            ai.hand.remove(card)
-                        if card.name in ["COMMUNICATION", "SYMBIOSIS", "COOPERATION"]:
-                            new_sp = ai.species[-1]
-                            candidates = [sp for sp in ai.species if sp is not new_sp]
-                            if not candidates:
-                                for op in self.players:
-                                    if op is ai:
-                                        continue
-                                    candidates.extend(op.species)
-                            if candidates:
-                                partner_sp = random.choice(candidates)
-                                new_sp.pair_partners[partner_sp] = card
-                                partner_sp.pair_partners[new_sp] = card
-                                print(f"{ai.name} (AI) paired {new_sp} with {partner_sp} for {card.name}.")
                 break
             if end_after_ai_skip:
-                print(color("\nAn AI skipped their action — one final human-only card-play turn remains.", YELLOW))
-                # Allow each human one final card-play action, then end phase
-                for human in [pl for pl in self.players if not pl.is_ai]:
-                    if not human.hand:
-                        continue
-                    self.show_species_state()
-                    print(f"\n--- {human.name}'s final card-play (AI skipped) ---")
-                    print("Your hand:")
-                    for idx, card in enumerate(human.hand, 1):
-                        print(f"{idx}: {card}")
-                    choice = input("Play one card? Enter card number or 'q' to skip: ")
-                    if choice.lower() == 'q':
-                        continue
-                    if not choice.isdigit() or int(choice)-1 not in range(len(human.hand)):
-                        print("Invalid!")
-                        continue
-                    card = human.hand[int(choice)-1]
-
-                    # If multi-function card, ask which mode to use
-                    if hasattr(card, 'options') and len(card.options) > 1:
-                        print("This card has multiple functions:")
-                        for mi, mo in enumerate(card.options, 1):
-                            print(f"{mi}: {mo}")
-                        mchoice = input("Choose function number (or press Enter for default): ")
-                        if mchoice.isdigit() and 1 <= int(mchoice) <= len(card.options):
-                            card.choose_mode(int(mchoice)-1)
-                        else:
-                            card.choose_mode(0)
-
-                    # Handle PARASITE specially (accept Russian label as well)
-                    if ("ПАРАЗИТ" in card.name) or (card.name == "PARASITE"):
-                        opponents = [op for op in self.players if op != human and op.species]
-                        if opponents:
-                            print("Which opponent species to infect with PARASITE?")
-                            for idx, opponent in enumerate(opponents, 1):
-                                print(f"{idx}: {opponent.name}")
-                            op_choice = input("Choose opponent (or 'q' to cancel): ")
-                            if op_choice.lower() == 'q':
-                                continue
-                            if not op_choice.isdigit():
-                                print("Invalid!")
-                                continue
-                            if int(op_choice)-1 not in range(len(opponents)):
-                                print("Invalid opponent!")
-                                continue
-                            target_player = opponents[int(op_choice)-1]
-                            if target_player.species:
-                                print("Which species to infect?")
-                                for idx, sp in enumerate(target_player.species, 1):
-                                    print(f"{idx}: {sp}")
-                                sp_choice = input("Choose species: ")
-                                if sp_choice.isdigit() and 1 <= int(sp_choice) <= len(target_player.species):
-                                    target_sp = target_player.species[int(sp_choice)-1]
-                                    target_sp.apply_parasite()
-                                    human.hand.remove(card)
-                                    print(f"Infected {target_player.name}'s species with PARASITE!")
-                                    continue
-                        print("Invalid target!")
-                        continue
-
-                    # Regular play: choose target species or create new
-                    if human.species:
-                        target = input(f"Add to species (1-{len(human.species)}) or create new (0)? ")
-                        if not target.isdigit():
-                            print("Invalid input!")
-                            continue
-                        target = int(target)
-                        if target == 0:
-                            human.create_species()
-                            if card in human.hand:
-                                human.hand.remove(card)
-                            print(f"Created new species (card {card} used but NOT a trait)")
-                        elif 1 <= target <= len(human.species):
-                            success = human.play_card(card, human.species[target-1])
-                            if success:
-                                print(f"Added {card} to species {target}")
-                            else:
-                                print("Species already has 3 traits!")
-                        else:
-                            print("Invalid species number!")
-                    else:
-                        human.create_species()
-                        if card in human.hand:
-                            human.hand.remove(card)
-                        print(f"Created new species (card {card} used but NOT a trait)")
                 break
 
     # -----------------------------
     # Feeding Phase
     # -----------------------------
     def feeding_phase(self):
-        clear_screen(0)
-        print(color("=== Feeding Phase ===", GREEN))
+        gui.clear_screen()
+        gui.print_header("Feeding Phase")
         self.food_bank = self.calculate_food_bank()
-        print(f"Food available: {self.food_bank} chips")
+        gui.show_food_bank(self.food_bank)
         
         # Reset FAT TISSUE conversion flag for this phase
         for p in self.players:
@@ -558,21 +321,18 @@ class Game:
                     actions_remaining = True
                     # Show full table so player can see AI animals before choosing
                     self.show_species_state()
-                    print(f"\n{color('=' * 50, GREEN)}")
-                    turn_text = p.name + "'s feeding turn"
-                    print(f"{color(turn_text, BOLD)}")
-                    print(f"{color('=' * 50, GREEN)}")
-                    print(f"Food bank: {color(str(self.food_bank), YELLOW)}")
-                    print(f"{color('Feedable species:', BOLD)}")
+                    gui.show_player_turn(p)
+                    gui.show_food_bank(self.food_bank)
+                    gui.print_info("Feedable species:")
                     for idx, sp in enumerate(feedable_species, 1):
-                        status = color(" (fat)", MAGENTA) if sp.is_fed() and sp.has_trait("FAT TISSUE") else ""
-                        print(f"  {color(str(idx) + ':', BOLD)} {sp}{status}")
+                        fat_marker = " (can convert to fat)" if sp.is_fed() and sp.has_trait("FAT TISSUE") else ""
+                        gui.print_info(f"  {idx}: {sp}{fat_marker}")
                     
                     choice = input(f"Feed species 1-{len(feedable_species)} (or 'q' to skip): ")
                     if choice.lower() == 'q':
                         continue
                     if not choice.isdigit() or int(choice)-1 not in range(len(feedable_species)):
-                        print("Invalid!")
+                        gui.print_error("Invalid!")
                         continue
                     
                     sp = feedable_species[int(choice)-1]
@@ -583,10 +343,10 @@ class Game:
                         if gchoice.lower() == 'y':
                             if self.food_bank > 0:
                                 self.food_bank -= 1
-                                print(color(f"{p.name} activated GRAZING: removed 1 from food bank.", GREEN))
+                                gui.print_success(f"{p.name} activated GRAZING: removed 1 from food bank.")
                                 # grazing does not feed the species
                                 # show updated bank and continue (player may choose again)
-                                print(f"Food bank: {color(str(self.food_bank), YELLOW)}")
+                                gui.show_food_bank(self.food_bank)
                                 self.show_species_state()
                                 actions_remaining = True
                                 continue
@@ -596,12 +356,12 @@ class Game:
                         sp.add_fat_storage(1)
                         sp.fat_converted_this_round = True
                         self.food_bank -= 1
-                        print(color(f"{p.name}'s species converted 1 food to fat.", MAGENTA))
+                        gui.print_info(f"{p.name}'s species converted 1 food to fat.")
                     else:
                         # Normal feeding for unfed species
                         self.feed_species(sp, p)
                     
-                    print(f"Food bank: {color(str(self.food_bank), YELLOW)}")
+                    gui.show_food_bank(self.food_bank)
                     # refresh table after feeding
                     self.show_species_state()
                     
@@ -611,8 +371,11 @@ class Game:
                             if other_sp != sp and not other_sp.is_fed() and self.food_bank > 0:
                                 other_sp.food += 1
                                 self.food_bank -= 1
-                                print(color(f"{p.name}'s COOPERATION: {other_sp} also got food!", MAGENTA))
-                                print(f"Food bank: {color(str(self.food_bank), YELLOW)}")
+                                gui.print_success(f"{p.name}'s COOPERATION: {other_sp} also got food!")
+                                gui.show_food_bank(self.food_bank)
+                    
+                    # Mark that actions were taken
+                    actions_remaining = True
 
                 # AI feeds silently
                 elif p.is_ai:
@@ -622,9 +385,8 @@ class Game:
                     # AI may choose to use GRAZING to remove 1 without feeding
                     if sp.has_trait("GRAZING") and self.food_bank > 0 and random.random() < 0.4:
                         self.food_bank -= 1
-                        print(color(f"{p.name} (AI) activated GRAZING: removed 1 from food bank.", GREEN))
-                        print(f"Food bank: {self.food_bank}")
-                        actions_remaining = True
+                        gui.print_success(f"{p.name} (AI) activated GRAZING: removed 1 from food bank.")
+                        gui.show_food_bank(self.food_bank)
                         continue
                     
                     # If already fed with FAT TISSUE, auto-convert (chance for AI)
@@ -635,7 +397,8 @@ class Game:
                     else:
                         self.feed_species(sp, p)
                     
-                    print(f"Food bank: {self.food_bank}")
+                    gui.show_food_bank(self.food_bank)
+
     def feed_species(self, species, player):
         """Feed a single species from food bank."""
         if self.food_bank <= 0:
@@ -649,7 +412,7 @@ class Game:
         if species.has_trait("HIBERNATION ABILITY"):
             if not species.hibernating:
                 species.hibernating = True
-                print(color(f"{player.name}'s species entered HIBERNATION (fed without food)", MAGENTA))
+                gui.print_info(f"{player.name}'s species entered HIBERNATION (fed without food)")
                 return True
 
         # FAT TISSUE: use stored fat first if available
@@ -658,7 +421,7 @@ class Game:
             if consumed > 0:
                 species.food += consumed
                 needed -= consumed
-                print(color(f"{player.name}'s species used {consumed} fat from FAT TISSUE instead of bank food.", MAGENTA))
+                gui.print_info(f"{player.name}'s species used {consumed} fat from FAT TISSUE instead of bank food.")
                 if needed <= 0:
                     # fully fed by fat
                     return True
@@ -672,7 +435,7 @@ class Game:
 
         species.food += amount
         self.food_bank -= amount
-        print(f"{player.name}'s species took {amount} food from the bank.")
+        gui.print_info(f"{player.name}'s species took {amount} food from the bank.")
 
         return True
 
@@ -680,8 +443,8 @@ class Game:
     # Carnivore Attacks
     # -----------------------------
     def carnivore_attacks(self):
-        clear_screen(0)
-        print(color("=== Carnivore Attacks ===", RED))
+        gui.clear_screen()
+        gui.print_header("Carnivore Attacks")
         for attacker in self.players:
             for attacker_sp in attacker.species[:]:
                 if "CARNIVORE" not in [t.name for t in attacker_sp.traits]:
@@ -842,7 +605,7 @@ class Game:
                         consumed = sp.consume_fat_storage(needed)
                         if consumed > 0:
                             sp.food += consumed
-                            print(color(f"{p.name}'s {sp} used {consumed} fat to avoid starvation.", MAGENTA))
+                            gui.print_info(f"{p.name}'s {sp} used {consumed} fat to avoid starvation.")
                     # SYMBIOSIS: symbiote can't die while symbiont exists
                     if not sp.is_fed():
                         alive_partner = False
@@ -852,7 +615,7 @@ class Game:
                                     alive_partner = True
                                     break
                         if alive_partner:
-                            print(color(f"{p.name}'s {sp} is protected by SYMBIOSIS partner and survives despite being unfed.", MAGENTA))
+                            gui.print_info(f"{p.name}'s {sp} is protected by SYMBIOSIS partner and survives despite being unfed.")
                             continue
                         # still unfed -> extinct
                         print(f"{p.name}'s {sp} went extinct due to starvation!")
@@ -911,13 +674,12 @@ class Game:
         """Play game rounds until deck runs out."""
         while self.game_active:
             self.round_number += 1
-            print(f"\n{'='*50}")
-            print(f"=== ROUND {self.round_number} ===")
-            print(f"={'='*50}")
+            gui.clear_screen()
+            gui.show_round_header(self.round_number)
             
             # Check if deck has enough cards
             if len(self.deck.cards) < 3:
-                print("\nDeck running low - this is the final round!")
+                gui.print_warning("Deck running low - this is the final round!")
                 self.game_active = False
             
             self.card_play_phase()
@@ -928,13 +690,15 @@ class Game:
             if not self.game_active:
                 break
 
-        print("\n" + "="*50)
-        print("=== GAME OVER ===")
-        print("="*50)
+        gui.clear_screen()
         scores = self.calculate_scores()
-        print("\nFinal Scores:")
-        for name, score in sorted(scores.items(), key=lambda x: x[1], reverse=True):
-            print(f"{name}: {score} points")
         
-        winner = max(scores.items(), key=lambda x: x[1])
-        print(f"\n🎉 {winner[0]} wins with {winner[1]} points!")
+        # Display final scores
+        gui.print_header("GAME OVER - Final Scores")
+        sorted_scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+        
+        for name, score in sorted_scores:
+            gui.print_info(f"{name}: {score} points")
+        
+        winner_name, winner_score = sorted_scores[0]
+        gui.show_game_over(self.players[[p.name for p in self.players].index(winner_name)])
