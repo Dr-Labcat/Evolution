@@ -2,6 +2,7 @@
 # Evolution: The Origin of Species - Python Implementation
 
 A faithful digital implementation of the award-winning Russian board game "Evolution: The Origin of Species" by Dmitry Knorre and Sergey Machin.
+An attempt at adding a GUI to the working version
 
 ## About the Game
 
