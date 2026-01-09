@@ -334,8 +334,3 @@ check the documentation files or review the source code comments.
 ---
 
 **Enjoy evolving your species! May the most adapted win! 🧬**
-
-=======
-# Evolution
-Trying to make a working pc version of Evolution (russian version)
->>>>>>> a42aeb6633f76fcced4d837470e726001da0870e
