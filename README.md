@@ -2,7 +2,7 @@
 
 A faithful digital implementation of the award-winning board game "Evolution: The Origin of Species". Create species, evolve them with strategic traits, and compete for survival in a dynamic ecosystem.
 
-**[Jump to Quick Start →](#quick-start-guide)**
+**[Jump to Quick Start →](##-⚡quick-start-guide)**
 
 ---
 
